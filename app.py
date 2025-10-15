@@ -139,6 +139,11 @@ def send_message(chat_id):
     # Helper: robustly extract first JSON object from a text blob and parse it.
     import json
     import re
+    import ast
+
+    # track parsed result across branches
+    parsed = None
+    cleaned_for_ui = ''
 
     def extract_first_json_blob(text: str) -> str | None:
         """Find the first balanced JSON object in text and return the substring, or None."""
@@ -194,12 +199,25 @@ def send_message(chat_id):
         # Try to extract first JSON blob
         json_blob = extract_first_json_blob(cleaned)
         if json_blob:
+            # First attempt: strict JSON
             try:
                 parsed = json.loads(json_blob)
                 return parsed, json.dumps(parsed, ensure_ascii=False)
             except Exception:
-                # fall through to heuristic cleanup
-                pass
+                # Try some heuristics: remove trailing commas and try again
+                try:
+                    repaired = re.sub(r",\s*(?=[}\]])", "", json_blob)
+                    parsed = json.loads(repaired)
+                    return parsed, json.dumps(parsed, ensure_ascii=False)
+                except Exception:
+                    # Try Python literal eval for single-quoted dicts/lists
+                    try:
+                        literal = ast.literal_eval(json_blob)
+                        # ensure we have a dict or list
+                        if isinstance(literal, (dict, list)):
+                            return literal, json.dumps(literal, ensure_ascii=False)
+                    except Exception:
+                        pass
 
         # As a fallback, try to find something that looks like JSON using regex
         m = re.search(r"\{[\s\S]*\}", cleaned)
@@ -208,7 +226,18 @@ def send_message(chat_id):
                 parsed = json.loads(m.group(0))
                 return parsed, json.dumps(parsed, ensure_ascii=False)
             except Exception:
-                pass
+                # try repairing the matched substring
+                try:
+                    candidate = re.sub(r",\s*(?=[}\]])", "", m.group(0))
+                    parsed = json.loads(candidate)
+                    return parsed, json.dumps(parsed, ensure_ascii=False)
+                except Exception:
+                    try:
+                        literal = ast.literal_eval(m.group(0))
+                        if isinstance(literal, (dict, list)):
+                            return literal, json.dumps(literal, ensure_ascii=False)
+                    except Exception:
+                        pass
 
         # No JSON parsed — return None and a shortened cleaned text for UI
         short = cleaned
@@ -224,6 +253,8 @@ def send_message(chat_id):
             "\"recommendations\": [\"Rest and hydrate\", \"OTC pain reliever as needed\", \"See doctor if severe or persistent\"],"
             "\"disclaimer\": \"Educational only; not medical advice. Consult a healthcare professional.\"}"
         )
+        # try to parse the fallback response so UI can receive structured parsed data
+        parsed, cleaned_for_ui = parse_model_output_to_json(gen_response)
     else:
         try:
             raw = gem.generate(prompt, system_instruction=system_instruction)

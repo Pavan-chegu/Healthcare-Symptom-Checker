@@ -26,3 +26,15 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+
+# Pytest
+.pytest_cache/
+
+# IDE files
+.idea/
+.vscode/
