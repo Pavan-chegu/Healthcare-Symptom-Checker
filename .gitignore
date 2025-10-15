@@ -1,0 +1,28 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+
+# Environments
+.venv/
+venv/
+env/
+healthifierpavan/
+
+# Environment files
+.env
+.env.*
+
+# SQLite DB
+data.db
+*.sqlite3
+
+# Editor directories
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

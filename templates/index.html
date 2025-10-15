@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Healthcare Symptom Checker</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Healthcare Symptom Checker</h1>
+        <p class="muted">Educational demo. Not medical advice.</p>
+      </header>
+
+      <section class="new-chat">
+        <button id="newChatBtn">Start New Symptom Check</button>
+      </section>
+
+      <section class="chats">
+        <h2>Your Chats</h2>
+        <ul id="chatList">
+          {% for c in chats %}
+          <li><a href="/chat/{{ c.id }}">{{ c.title }} <small>{{ c.created_at }}</small></a></li>
+          {% else %}
+          <li>No chats yet</li>
+          {% endfor %}
+        </ul>
+      </section>
+    </div>
+
+    <script>
+      document.getElementById('newChatBtn').addEventListener('click', async () => {
+        const res = await fetch('/api/chats', {method: 'POST', headers: {'Content-Type': 'application/json'}});
+        const body = await res.json();
+        window.location = '/chat/' + body.id;
+      });
+    </script>
+  </body>
+</html>

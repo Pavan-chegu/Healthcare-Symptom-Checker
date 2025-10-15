@@ -1,0 +1,20 @@
+body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;margin:0;background:#f6f9fc}
+.container{max-width:900px;margin:32px auto;padding:24px;background:white;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,0.06)}
+header h1{margin:0}
+.muted{color:#666;font-size:0.9rem}
+.new-chat{margin:12px 0}
+button{background:#2563eb;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer}
+.chats ul{list-style:none;padding-left:0}
+.chats li{padding:8px 0;border-bottom:1px solid #f0f3f7}
+.messages{min-height:300px;padding:8px;border:1px solid #eef3fb;margin:12px 0;border-radius:6px;overflow:auto}
+.message{padding:8px;margin:6px 0;border-radius:6px}
+.message.user{background:#e8f0ff}
+.message.assistant{background:#f1f5f9}
+.composer{display:flex;gap:8px}
+textarea{flex:1;min-height:80px;padding:8px;border-radius:6px;border:1px solid #dbeafe}
+
+/* Structured assistant card */
+.assistant-card{background:white;border:1px solid #e2e8f0;padding:12px;border-radius:8px;margin:6px 0}
+.assistant-card strong{display:block;margin-bottom:6px}
+.assistant-card ul{margin:0 0 6px 18px}
+.assistant-card .disclaimer{font-size:0.9rem;color:#555;margin-top:8px}
