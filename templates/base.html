@@ -1,0 +1,156 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Healthcare Symptom Checker{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <!-- hamburger placed at top-level to avoid being clipped when sidebar uses transforms -->
+    <button id="sidebarToggle" class="hamburger" aria-label="Toggle menu" aria-expanded="false" aria-controls="sidebar">
+      <span class="hamburger-line line1" aria-hidden="true"></span>
+      <span class="hamburger-line line2" aria-hidden="true"></span>
+      <span class="hamburger-line line3" aria-hidden="true"></span>
+    </button>
+
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="brand">Health</div>
+      </div>
+      <ul class="nav-list">
+        <li><a href="/">Chat</a></li>
+        <li><a href="/history">History</a></li>
+        <li><a href="/settings">Settings</a></li>
+      </ul>
+    </nav>
+
+    <div class="main">
+      <header>
+        <div class="header-left">
+          <h1>Healthcare Symptom Checker</h1>
+        </div>
+        <div class="header-right">
+          <span id="usernameDisplay" class="username"></span>
+        </div>
+      </header>
+
+      <main class="main-content">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+
+    <script>
+    (function(){
+  const sidebar = document.getElementById('sidebar');
+  const toggle = document.getElementById('sidebarToggle');
+  const usernameDisplay = document.getElementById('usernameDisplay');
+  const navLinks = document.querySelectorAll('.nav-list a');
+  const body = document.body;
+
+      // helper to update hamburger visual state
+      const setHamburgerOpen = (isOpen)=>{
+        if (!toggle) return
+        if (isOpen) toggle.classList.add('open')
+        else toggle.classList.remove('open')
+      }
+
+      // update body classes so CSS can position hamburger to avoid overlap
+      const updateBodySidebarState = ()=>{
+        if (!sidebar) return
+        const visible = sidebar.classList.contains('overlay') || !sidebar.classList.contains('collapsed')
+        if (visible){
+          body.classList.add('sidebar-visible')
+          body.classList.remove('sidebar-collapsed')
+        } else {
+          body.classList.remove('sidebar-visible')
+          body.classList.add('sidebar-collapsed')
+        }
+      }
+
+      // sidebar toggle (hamburger). On small screens we show overlay, else collapse
+      const setSidebar = (collapsed)=>{
+        if (!sidebar) return
+        if (collapsed) sidebar.classList.add('collapsed')
+        else sidebar.classList.remove('collapsed')
+      }
+
+      if (toggle && sidebar) {
+        toggle.addEventListener('click', (e)=>{
+          // on mobile, clicking the toggle should open the overlay but not close it;
+          // closing is handled by tapping the backdrop / anywhere outside the sidebar.
+          if (window.matchMedia('(max-width: 768px)').matches) {
+            if (!sidebar.classList.contains('overlay')){
+              sidebar.classList.add('overlay')
+              setHamburgerOpen(true)
+              createBackdrop()
+            }
+          } else {
+            const isCollapsed = sidebar.classList.toggle('collapsed')
+            localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0')
+            setHamburgerOpen(!isCollapsed)
+          }
+          updateBodySidebarState()
+        })
+        const saved = localStorage.getItem('sidebar_collapsed')
+        setSidebar(saved === '1')
+          setHamburgerOpen(saved !== '1')
+          updateBodySidebarState()
+      }
+
+      // close overlay when clicking outside on small screens
+      document.addEventListener('click', (e)=>{
+        if (sidebar && sidebar.classList.contains('overlay')){
+          const inside = sidebar.contains(e.target) || (toggle && toggle.contains(e.target))
+          if (!inside) {
+            sidebar.classList.remove('overlay')
+            setHamburgerOpen(false)
+            updateBodySidebarState()
+            removeBackdrop()
+          }
+        }
+      })
+
+      // Backdrop helper to capture taps and close the overlay reliably
+      const createBackdrop = ()=>{
+        if (document.getElementById('sidebarBackdrop')) return
+        const b = document.createElement('div')
+        b.id = 'sidebarBackdrop'
+        b.className = 'sidebar-backdrop'
+        b.addEventListener('click', ()=>{
+          if (sidebar) sidebar.classList.remove('overlay')
+          setHamburgerOpen(false)
+          updateBodySidebarState()
+          removeBackdrop()
+        })
+        document.body.appendChild(b)
+      }
+      const removeBackdrop = ()=>{
+        const b = document.getElementById('sidebarBackdrop')
+        if (b) b.remove()
+      }
+
+      // set active nav link based on current path
+      try {
+        const path = window.location.pathname.replace(/\/$/, '') || '/'
+        navLinks.forEach(a=>{
+          try {
+            const href = a.getAttribute('href') || ''
+            const norm = href.replace(/\/$/, '') || '/'
+            if (norm === path) a.classList.add('active')
+            else a.classList.remove('active')
+          } catch(e){}
+        })
+      } catch(e){}
+
+      // username display
+      if (usernameDisplay){
+        const name = localStorage.getItem('health_username') || ''
+        if (name) usernameDisplay.textContent = name
+      }
+    })();
+    </script>
+
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

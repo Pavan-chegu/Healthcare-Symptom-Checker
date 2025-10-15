@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h2>Settings</h2>
+
+  <div class="settings-section">
+    <label for="username">Display name</label>
+    <input id="username" type="text" placeholder="Your name" />
+    <p class="muted">This name will be shown by the assistant when addressing you.</p>
+    <button id="saveUsername">Save</button>
+  </div>
+
+  <div class="settings-section">
+    <h3>History</h3>
+    <p class="muted">You can clear all saved chats and messages.</p>
+    <button id="clearHistory" class="danger">Clear history</button>
+    <div id="clearResult" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', ()=>{
+  const usernameInput = document.getElementById('username')
+  const saved = localStorage.getItem('health_username')
+  if (saved) usernameInput.value = saved
+
+  document.getElementById('saveUsername').addEventListener('click', ()=>{
+    const v = usernameInput.value?.trim() || ''
+    localStorage.setItem('health_username', v)
+    alert('Saved')
+  })
+
+  document.getElementById('clearHistory').addEventListener('click', async ()=>{
+    if (!confirm('Clear all chat history? This cannot be undone.')) return
+    const res = await fetch('/api/clear_history', {method:'POST'})
+    const j = await res.json()
+    const el = document.getElementById('clearResult')
+    if (j.status === 'ok') {
+      el.textContent = 'History cleared.'
+      el.style.color = 'green'
+    } else {
+      el.textContent = 'Error: ' + (j.error || 'unknown')
+      el.style.color = 'red'
+    }
+  })
+})
+</script>
+
+{% endblock %}
