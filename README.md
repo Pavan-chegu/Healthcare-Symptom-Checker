@@ -36,3 +36,8 @@ Notes
 
 - Use this app only for educational purposes. Always include a clear disclaimer when presenting health suggestions.
 - Gemini API usage: costs may apply. Keep your API key safe.
+
+
+
+video demo:
+https://drive.google.com/file/d/1TpYEDmrFvPHc6tro1VZtJ_QwIh3424ga/view?usp=drivesdk
