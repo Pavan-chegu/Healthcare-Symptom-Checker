@@ -1,109 +1,25 @@
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{ chat.title }}</title>
-    <link rel="stylesheet" href="/static/style.css" />
-  </head>
-  <body>
-    <div class="container">
-      <header>
-        <h1>{{ chat.title }}</h1>
-        <a href="/">Back to chats</a>
-      </header>
+{% extends 'base.html' %}
 
-      <section class="messages" id="messages">
-        {% for m in chat.messages %}
-          <div class="message {{ m.role }}"><strong>{{ m.role }}</strong>: {{ m.content }}</div>
-        {% endfor %}
-      </section>
+{% block title %}{{ chat.title }}{% endblock %}
 
-      <section class="composer">
-        <textarea id="symptoms" placeholder="Enter symptoms, e.g. fever and sore throat..."></textarea>
-        <button id="sendBtn">Send</button>
-      </section>
-    </div>
+{% block content %}
+  <header>
+    <h1>{{ chat.title }}</h1>
+    <a href="/">Back to chats</a>
+  </header>
 
-    <script>
-  const chatId = {{ chat.id | tojson }};
-      const sendBtn = document.getElementById('sendBtn');
-      const symptoms = document.getElementById('symptoms');
-      const messages = document.getElementById('messages');
+  <section class="messages" id="messages" data-chat-id="{{ chat.id }}">
+    {% for m in chat.messages %}
+      <div class="message {{ m.role }}"><strong>{{ m.role }}</strong>: {{ m.content }}</div>
+    {% endfor %}
+  </section>
 
-      sendBtn.addEventListener('click', async () => {
-        const text = symptoms.value.trim();
-        if (!text) return;
-        // append user message locally
-        const userDiv = document.createElement('div');
-        userDiv.className = 'message user';
-        userDiv.textContent = 'user: ' + text;
-        messages.appendChild(userDiv);
+  <section class="composer">
+    <textarea id="symptoms" placeholder="Enter symptoms, e.g. fever and sore throat..."></textarea>
+    <button id="sendBtn">Send</button>
+  </section>
+{% endblock %}
 
-        sendBtn.disabled = true;
-        const res = await fetch(`/api/chats/${chatId}/message`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({text})
-        });
-        const body = await res.json();
-
-        // If server returned parsed JSON, render a structured card
-        if (body.parsed) {
-          const card = document.createElement('div');
-          card.className = 'assistant-card';
-
-          const pc = body.parsed.possible_conditions || body.parsed.possibleConditions || [];
-          const recs = body.parsed.recommendations || body.parsed.recommendations || [];
-          const disc = body.parsed.disclaimer || body.parsed.disclaimer || '';
-
-          const pcEl = document.createElement('div');
-          pcEl.innerHTML = '<strong>Possible conditions</strong>';
-          const ul = document.createElement('ul');
-          pc.forEach(p => {
-            const li = document.createElement('li');
-            if (typeof p === 'string') {
-              li.textContent = p;
-            } else {
-              li.textContent = p.name + (p.reason ? ': ' + p.reason : '');
-            }
-            ul.appendChild(li);
-          });
-          pcEl.appendChild(ul);
-          card.appendChild(pcEl);
-
-          if (recs.length) {
-            const rEl = document.createElement('div');
-            rEl.innerHTML = '<strong>Recommendations</strong>';
-            const rul = document.createElement('ul');
-            recs.forEach(r => {
-              const li = document.createElement('li');
-              li.textContent = r;
-              rul.appendChild(li);
-            });
-            rEl.appendChild(rul);
-            card.appendChild(rEl);
-          }
-
-          if (disc) {
-            const dEl = document.createElement('div');
-            dEl.className = 'disclaimer';
-            dEl.textContent = 'Disclaimer: ' + disc;
-            card.appendChild(dEl);
-          }
-
-          const wrapper = document.createElement('div');
-          wrapper.className = 'message assistant';
-          wrapper.appendChild(card);
-          messages.appendChild(wrapper);
-        } else {
-          const aDiv = document.createElement('div');
-          aDiv.className = 'message assistant';
-          aDiv.textContent = 'assistant: ' + (body.assistant || body.error || 'No response');
-          messages.appendChild(aDiv);
-        }
-        sendBtn.disabled = false;
-      });
-    </script>
-  </body>
-</html>
+{% block scripts %}
+<script src="/static/chat.js"></script>
+{% endblock %}

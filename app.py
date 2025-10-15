@@ -35,6 +35,32 @@ def index():
     return render_template('index.html', chats=chats)
 
 
+@app.route('/history')
+def history():
+    db = SessionLocal()
+    chats = db.query(Chat).order_by(Chat.created_at.desc()).all()
+    return render_template('history.html', chats=chats)
+
+
+@app.route('/settings')
+def settings():
+    return render_template('settings.html')
+
+
+@app.route('/api/clear_history', methods=['POST'])
+def clear_history():
+    db = SessionLocal()
+    # delete messages then chats
+    try:
+        db.query(Message).delete()
+        db.query(Chat).delete()
+        db.commit()
+        return jsonify({'status': 'ok'})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+
 @app.route('/chat/<int:chat_id>')
 def view_chat(chat_id):
     db = SessionLocal()
@@ -110,6 +136,86 @@ def send_message(chat_id):
         f"Symptoms: {user_text}\n"
     )
 
+    # Helper: robustly extract first JSON object from a text blob and parse it.
+    import json
+    import re
+
+    def extract_first_json_blob(text: str) -> str | None:
+        """Find the first balanced JSON object in text and return the substring, or None."""
+        if not text:
+            return None
+        s = text.strip()
+
+        # Remove common markdown fences
+        if s.startswith('```') and s.endswith('```'):
+            parts = s.split('\n')
+            if len(parts) >= 3:
+                s = '\n'.join(parts[1:-1]).strip()
+
+        # Quick search for a JSON object start
+        start = s.find('{')
+        if start == -1:
+            return None
+
+        depth = 0
+        in_string = False
+        esc = False
+        for i in range(start, len(s)):
+            ch = s[i]
+            if ch == '"' and not esc:
+                in_string = not in_string
+            if in_string and ch == '\\' and not esc:
+                esc = True
+                continue
+            esc = False
+            if not in_string:
+                if ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        return s[start:i+1]
+        return None
+
+    def parse_model_output_to_json(text: str) -> tuple[dict | None, str]:
+        """Try to parse text into JSON dict. Returns (dict or None, cleaned_text_for_ui).
+
+        cleaned_text_for_ui is a compact representation useful for storing/display.
+        """
+        if text is None:
+            return None, ''
+        cleaned = text.strip()
+        # Remove triple-backtick fences if present
+        if cleaned.startswith('```') and cleaned.endswith('```'):
+            parts = cleaned.split('\n')
+            if len(parts) >= 3:
+                cleaned = '\n'.join(parts[1:-1]).strip()
+
+        # Try to extract first JSON blob
+        json_blob = extract_first_json_blob(cleaned)
+        if json_blob:
+            try:
+                parsed = json.loads(json_blob)
+                return parsed, json.dumps(parsed, ensure_ascii=False)
+            except Exception:
+                # fall through to heuristic cleanup
+                pass
+
+        # As a fallback, try to find something that looks like JSON using regex
+        m = re.search(r"\{[\s\S]*\}", cleaned)
+        if m:
+            try:
+                parsed = json.loads(m.group(0))
+                return parsed, json.dumps(parsed, ensure_ascii=False)
+            except Exception:
+                pass
+
+        # No JSON parsed — return None and a shortened cleaned text for UI
+        short = cleaned
+        if len(short) > 1000:
+            short = short[:1000] + '...'
+        return None, short
+
     # Attempt to call Gemini if configured; otherwise return a helpful message.
     gem = get_gemini_client()
     if gem is None:
@@ -121,39 +227,21 @@ def send_message(chat_id):
     else:
         try:
             raw = gem.generate(prompt, system_instruction=system_instruction)
-            # Try to parse JSON from the model output
-            import json
-
-            try:
-                # Some model outputs include markdown fences like ```json { ... } ```
-                # Strip code fences and surrounding whitespace, then extract the first JSON object.
-                cleaned = raw.strip()
-                # Remove common markdown fences
-                if cleaned.startswith('```') and cleaned.endswith('```'):
-                    # remove the first and last fence lines
-                    parts = cleaned.split('\n')
-                    # drop the first line (```...)
-                    if len(parts) >= 3:
-                        cleaned = '\n'.join(parts[1:-1]).strip()
-
-                # Try to find the first JSON object in the text using regex
-                import re
-
-                m = re.search(r"\{[\s\S]*\}", cleaned)
-                if m:
-                    json_text = m.group(0)
-                else:
-                    json_text = cleaned
-
-                parsed = json.loads(json_text)
-                # Build a compact, readable formatted text for the UI
+            # Try to parse model output into JSON using the robust helper
+            parsed, cleaned_for_ui = parse_model_output_to_json(raw)
+            if parsed:
+                # Build a compact, readable formatted text for the UI from parsed
                 parts = []
                 pcs = parsed.get('possible_conditions') or parsed.get('possibleConditions') or []
                 if pcs:
                     parts.append('Possible conditions:')
                     for p in pcs:
-                        name = p.get('name') if isinstance(p, dict) else str(p)
-                        reason = p.get('reason') if isinstance(p, dict) else ''
+                        if isinstance(p, dict):
+                            name = p.get('name')
+                            reason = p.get('reason', '')
+                        else:
+                            name = str(p)
+                            reason = ''
                         parts.append(f"- {name}: {reason}" if reason else f"- {name}")
 
                 recs = parsed.get('recommendations') or parsed.get('recommendations') or []
@@ -167,9 +255,9 @@ def send_message(chat_id):
                     parts.append(f"\nDisclaimer: {disc}")
 
                 gen_response = '\n'.join(parts).strip()
-            except Exception:
-                # Parsing failed — fallback to raw trimmed text
-                gen_response = raw.strip()
+            else:
+                # No JSON parsed; use cleaned_for_ui (shortened/canonicalized text)
+                gen_response = cleaned_for_ui or raw.strip()
         except Exception as e:
             gen_response = f"Error contacting Gemini: {e}"
 
